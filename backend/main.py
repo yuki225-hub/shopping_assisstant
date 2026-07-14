@@ -50,10 +50,22 @@ Use JWT Bearer token. Register → Login → Use access_token in Authorization h
     lifespan=lifespan,
 )
 
-# CORS
+# CORS configuration targeting actual dynamic client hosts:
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://shopping-agent-frontend-kdr2.onrender.com",  # Nee live production React website URL!
+]
+
+# dynamic config properties structure fallback:
+if settings.allowed_origins_list:
+    for url in settings.allowed_origins_list:
+        if url not in origins:
+            origins.append(url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
