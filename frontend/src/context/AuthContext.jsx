@@ -12,18 +12,19 @@ export function AuthProvider({ children }) {
     if (token) {
       authAPI.getProfile()
         .then(r => {
-          // Robust nested data check parsing layers variables matching lookup setups:
-          const userData = r.data?.user || r.data?.data || r.data;
-          if (userData) {
+          // Robust checking mechanisms to fallback on any nested variations
+          const userData = r?.data?.user || r?.data?.data || r?.data;
+          if (userData && (userData.id || userData.email || userData.username)) {
             setUser(userData);
           } else {
-            // Fallback object fields tracking properties fallback structural properties:
+            // If data exists but has nested structure patterns
             setUser(r.data);
           }
         })
-        .catch(() => {
-          // System handles errors safely without hard crashing active valid session tokens
-          console.error("Profile recovery session mapping bypassed or format structure mismatch");
+        .catch((err) => {
+          console.error("Profile check failed, clearing session: ", err);
+          localStorage.clear();
+          setUser(null);
         })
         .finally(() => setLoading(false))
     } else {
@@ -32,19 +33,28 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async (email, password) => {
-    const response = await authAPI.login({ email, password })
-    // Axios handles responses context formatting wrapper layer safe layout mapping lookups:
-    const resData = response.data?.data || response.data;
-    
-    if (resData && resData.access_token) {
-      localStorage.setItem('access_token', resData.access_token)
-      localStorage.setItem('refresh_token', resData.refresh_token || '')
+    try {
+      const response = await authAPI.login({ email, password })
+      // Unwrapping standard object values safely
+      const resData = response?.data?.data || response?.data;
       
-      const sessionUser = resData.user || resData;
-      setUser(sessionUser)
-      return sessionUser
+      if (resData && (resData.access_token || resData.data?.access_token)) {
+        const token = resData.access_token || resData.data?.access_token;
+        const refresh = resData.refresh_token || resData.data?.refresh_token || '';
+        
+        localStorage.setItem('access_token', token)
+        localStorage.setItem('refresh_token', refresh)
+        
+        const sessionUser = resData.user || resData.data?.user || resData;
+        setUser(sessionUser)
+        return sessionUser
+      }
+      throw new Error("Invalid token structure from backend");
+    } catch (error) {
+      localStorage.clear();
+      setUser(null);
+      throw error;
     }
-    return null
   }
 
   const register = async (formData) => {
@@ -54,8 +64,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try { await authAPI.logout() } catch {}
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+    localStorage.clear()
     setUser(null)
   }
 
@@ -63,7 +72,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }
