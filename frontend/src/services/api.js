@@ -1,6 +1,11 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: '/api/v1' })
+// Direct live Render backend base URL config set coordinates:
+const BACKEND_URL = 'https://shopping-agent-backend-xabi.onrender.com/api/v1'
+
+const api = axios.create({ 
+  baseURL: BACKEND_URL 
+})
 
 // Attach token to every request
 api.interceptors.request.use(cfg => {
@@ -17,7 +22,8 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem('refresh_token')
       if (refresh) {
         try {
-          const { data } = await axios.post('/api/v1/auth/refresh', { refresh_token: refresh })
+          // Absolute path backend reference to avoid frontend domain routing errors:
+          const { data } = await axios.post(`${BACKEND_URL}/auth/refresh`, { refresh_token: refresh })
           localStorage.setItem('access_token', data.access_token)
           err.config.headers.Authorization = `Bearer ${data.access_token}`
           return api(err.config)
