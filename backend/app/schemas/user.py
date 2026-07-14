@@ -35,10 +35,11 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
-    full_name: Optional[str]
-    is_active: bool
-    preferences: Dict[str, Any]
-    created_at: datetime
+    full_name: Optional[str] = None
+    # Mandatory validations clear cheyataniki defaults parameters optional structures:
+    is_active: bool = True
+    preferences: Optional[Dict[str, Any]] = {}
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
