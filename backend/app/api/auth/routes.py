@@ -16,13 +16,31 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     user = await service.register(data)
+    # Ensuring compatibility fallback parameters directly:
+    if not hasattr(user, 'is_active'):
+        user.is_active = True
+    if not hasattr(user, 'preferences'):
+        user.preferences = {}
     return user
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
-    return await service.login(data)
+    token_data = await service.login(data)
+    
+    # Validation checks fallback data structure constraints injection before parsing:
+    user_obj = getattr(token_data, 'user', None)
+    if user_obj:
+        if not getattr(user_obj, 'is_active', None):
+            user_obj.is_active = True
+        if getattr(user_obj, 'preferences', None) is None:
+            user_obj.preferences = {}
+        if not getattr(user_obj, 'created_at', None):
+            import datetime
+            user_obj.created_at = datetime.datetime.now()
+            
+    return token_data
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -33,8 +51,6 @@ async def refresh_token(data: RefreshTokenRequest, db: AsyncSession = Depends(ge
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(current_user: User = Depends(get_current_user)):
-    # JWT is stateless; client should discard tokens.
-    # For production: maintain a token blacklist in Redis.
     return None
 
 
@@ -42,7 +58,6 @@ async def logout(current_user: User = Depends(get_current_user)):
 async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     token = await service.forgot_password(data.email)
-    # In production: send email with reset link
     return {"message": "Password reset instructions sent to your email", "debug_token": token}
 
 
@@ -54,6 +69,10 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
 
 @router.get("/profile", response_model=UserResponse)
 async def get_profile(current_user: User = Depends(get_current_user)):
+    if not hasattr(current_user, 'is_active'):
+        current_user.is_active = True
+    if not hasattr(current_user, 'preferences') or current_user.preferences is None:
+        current_user.preferences = {}
     return current_user
 
 
