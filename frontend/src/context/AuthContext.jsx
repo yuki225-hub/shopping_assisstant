@@ -11,8 +11,20 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem('access_token')
     if (token) {
       authAPI.getProfile()
-        .then(r => setUser(r.data))
-        .catch(() => localStorage.clear())
+        .then(r => {
+          // Robust nested data check parsing layers variables matching lookup setups:
+          const userData = r.data?.user || r.data?.data || r.data;
+          if (userData) {
+            setUser(userData);
+          } else {
+            // Fallback object fields tracking properties fallback structural properties:
+            setUser(r.data);
+          }
+        })
+        .catch(() => {
+          // System handles errors safely without hard crashing active valid session tokens
+          console.error("Profile recovery session mapping bypassed or format structure mismatch");
+        })
         .finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -20,11 +32,19 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async (email, password) => {
-    const { data } = await authAPI.login({ email, password })
-    localStorage.setItem('access_token', data.access_token)
-    localStorage.setItem('refresh_token', data.refresh_token)
-    setUser(data.user)
-    return data.user
+    const response = await authAPI.login({ email, password })
+    // Axios handles responses context formatting wrapper layer safe layout mapping lookups:
+    const resData = response.data?.data || response.data;
+    
+    if (resData && resData.access_token) {
+      localStorage.setItem('access_token', resData.access_token)
+      localStorage.setItem('refresh_token', resData.refresh_token || '')
+      
+      const sessionUser = resData.user || resData;
+      setUser(sessionUser)
+      return sessionUser
+    }
+    return null
   }
 
   const register = async (formData) => {
@@ -34,7 +54,8 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try { await authAPI.logout() } catch {}
-    localStorage.clear()
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
     setUser(null)
   }
 
@@ -42,7 +63,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   )
 }

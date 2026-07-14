@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import secrets
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
@@ -27,21 +28,29 @@ class AuthService:
         )
         return await self.repo.create(user)
 
-    async def login(self, data: UserLogin) -> TokenResponse:
+    async def login(self, data: UserLogin) -> Any:
         user = await self.repo.get_by_email(data.email)
         if not user or not verify_password(data.password, user.password_hash):
             raise UnauthorizedError("Invalid email or password")
         if not user.is_active:
             raise UnauthorizedError("Account is inactive")
 
-        payload = {"sub": str(user.id), "email": user.email}
-        return TokenResponse(
-            access_token=create_access_token(payload),
-            refresh_token=create_refresh_token(payload),
-            user=user,
-        )
+        payload = {"sub": str(user.id), "email": user.email, "type": "access"}
+        
+        # Pure dictionary format return chesthe content-length perfect ga pothundhi
+        return {
+            "access_token": create_access_token(payload),
+            "refresh_token": create_refresh_token({"sub": str(user.id), "email": user.email, "type": "refresh"}),
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "full_name": user.full_name
+            }
+        }
 
-    async def refresh(self, refresh_token: str) -> TokenResponse:
+    async def refresh(self, refresh_token: str) -> Any:
         payload = decode_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
             raise UnauthorizedError("Invalid refresh token")
@@ -50,11 +59,13 @@ class AuthService:
         if not user:
             raise UnauthorizedError("User not found")
 
-        token_payload = {"sub": str(user.id), "email": user.email}
-        return TokenResponse(
-            access_token=create_access_token(token_payload),
-            refresh_token=create_refresh_token(token_payload),
-        )
+        token_payload = {"sub": str(user.id), "email": user.email, "type": "access"}
+        
+        return {
+            "access_token": create_access_token(token_payload),
+            "refresh_token": create_refresh_token({"sub": str(user.id), "email": user.email, "type": "refresh"}),
+            "token_type": "bearer"
+        }
 
     async def forgot_password(self, email: str) -> str:
         user = await self.repo.get_by_email(email)
@@ -63,14 +74,17 @@ class AuthService:
 
         token = secrets.token_urlsafe(32)
         user.reset_token = token
-        user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
-        return token  # In production: send via email
+        # Safe timezone-aware configuration checks for modern Python:
+        user.reset_token_expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
+        return token
 
     async def reset_password(self, token: str, new_password: str) -> None:
         user = await self.repo.get_by_reset_token(token)
         if not user:
             raise ValidationError("Invalid or expired reset token")
-        if user.reset_token_expires < datetime.utcnow():
+            
+        current_time = datetime.now(timezone.utc).replace(tzinfo=None)
+        if user.reset_token_expires < current_time:
             raise ValidationError("Reset token has expired")
 
         user.password_hash = hash_password(new_password)
