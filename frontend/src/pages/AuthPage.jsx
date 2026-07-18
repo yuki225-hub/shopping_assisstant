@@ -7,12 +7,17 @@ import { authAPI, shoppingAPI } from '../services/api'
 import { ShoppingBag, Mail, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+// 🌟 Google OAuth components implementation
+import { GoogleLogin } from '@react-oauth/google'
+
 export default function AuthPage() {
   const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot'
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ username: '', email: '', password: '', full_name: '' })
-  const { login, register } = useAuth()
+  
+  // 🌟 Extracted `loginWithGoogle` custom action handler
+  const { login, register, loginWithGoogle } = useAuth()
   const { clearPending } = useWishlist()
   const navigate = useNavigate()
 
@@ -64,6 +69,32 @@ export default function AuthPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // 🌟 3️⃣ Handlers for Google OAuth triggers (Success & Failures validation logs)
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true)
+    try {
+      const googleToken = credentialResponse.credential
+      if (!googleToken) {
+        throw new Error("No credential token returned from Google Sign-In.")
+      }
+      
+      await loginWithGoogle(googleToken)
+      await handlePendingWishlist()
+      toast.success('Google Authentication Successful! 🌈')
+      navigate('/dashboard')
+    } catch (err) {
+      console.error("Google Auth failed:", err)
+      const msg = err.response?.data?.detail || err.message
+      toast.error(typeof msg === 'string' ? msg : 'Google Login failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleFailure = () => {
+    toast.error('Google Authentication process interrupted or failed.')
   }
 
   const submitLabel = mode === 'login' ? 'Sign In' : mode === 'register' ? 'Create Account' : 'Send Reset Link'
@@ -206,7 +237,7 @@ export default function AuthPage() {
                 {mode === 'forgot' && <div className="mb-6" />}
 
                 <motion.button type="submit" disabled={loading} whileHover={{ scale:1.02 }} whileTap={{ scale:0.98 }}
-                  className="w-full gradient-bg text-white py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 shadow-lg disabled:opacity-60 transition-all"
+                  className="w-full gradient-bg text-white py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 shadow-lg disabled:opacity-60 transition-all mb-4"
                   style={{ boxShadow:'0 8px 25px rgba(99,102,241,0.4)' }}>
                   {loading
                     ? <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:'linear' }}
@@ -215,8 +246,32 @@ export default function AuthPage() {
                   }
                 </motion.button>
 
+                {/* 🌟 4️⃣ Visual Divider & Google Authentication Button */}
                 {mode !== 'forgot' && (
-                  <p className="text-center text-slate-400 text-sm mt-4">
+                  <>
+                    <div className="relative my-6 flex items-center justify-center">
+                      <div className="border-t border-slate-700/60 w-full absolute"></div>
+                      <span className="bg-[#121224] px-4 text-xs text-slate-400 uppercase tracking-widest relative z-10 font-semibold rounded-full">
+                        Or Continue With
+                      </span>
+                    </div>
+
+                    <div className="flex justify-center w-full my-4 google-btn-dark-theme-wrapper">
+                      <GoogleLogin
+                        onSuccess={handleGoogleSuccess}
+                        onError={handleGoogleFailure}
+                        useOneTap
+                        theme="filled_blue"
+                        shape="pill"
+                        text="signin_with"
+                        width="100%"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {mode !== 'forgot' && (
+                  <p className="text-center text-slate-400 text-sm mt-6">
                     {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
                     <button type="button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
                       className="text-indigo-400 hover:text-indigo-300 font-medium">

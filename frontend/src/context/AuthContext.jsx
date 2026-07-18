@@ -57,6 +57,34 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // 🌟 NEW: Google Authentication Session Handler
+  const loginWithGoogle = async (googleCredentialToken) => {
+    try {
+      setLoading(true);
+      const response = await authAPI.googleLogin(googleCredentialToken);
+      const resData = response?.data?.data || response?.data;
+
+      if (resData && (resData.access_token || resData.data?.access_token)) {
+        const token = resData.access_token || resData.data?.access_token;
+        const refresh = resData.refresh_token || resData.data?.refresh_token || '';
+
+        localStorage.setItem('access_token', token);
+        localStorage.setItem('refresh_token', refresh);
+
+        const sessionUser = resData.user || resData.data?.user || resData;
+        setUser(sessionUser);
+        return sessionUser;
+      }
+      throw new Error("Invalid token structure from Google response backend");
+    } catch (error) {
+      localStorage.clear();
+      setUser(null);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const register = async (formData) => {
     await authAPI.register(formData)
     return login(formData.email, formData.password)
@@ -71,7 +99,7 @@ export function AuthProvider({ children }) {
   const updateUser = (data) => setUser(prev => ({ ...prev, ...data }))
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

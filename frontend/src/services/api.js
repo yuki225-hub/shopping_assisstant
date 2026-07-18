@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 // Direct live Render backend base URL config set coordinates:
-const BACKEND_URL = 'https://shopping-agent-backend-xabi.onrender.com/api/v1'
+const BACKEND_URL = 'https://shopping-agent-backend-xabi.onrender.com'
 
 const api = axios.create({ 
   baseURL: BACKEND_URL 
@@ -40,6 +40,7 @@ api.interceptors.response.use(
 export const authAPI = {
   register: d => api.post('/auth/register', d),
   login: d => api.post('/auth/login', d),
+  googleLogin: token => api.post('/auth/google', { token }), // 🌟 Added Google Login API Method
   logout: () => api.post('/auth/logout'),
   forgotPassword: d => api.post('/auth/forgot-password', d),
   resetPassword: d => api.post('/auth/reset-password', d),

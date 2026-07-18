@@ -1,5 +1,7 @@
+from typing import Any
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel  # 🌟 Added for Google request verification schema
 from app.database.session import get_db
 from app.services.auth_service import AuthService
 from app.core.dependencies import get_current_user
@@ -10,6 +12,13 @@ from app.schemas.user import (
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+# ==========================================
+# 🌟 1️⃣ Google Request Payload Validation Schema
+# ==========================================
+class GoogleAuthRequest(BaseModel):
+    token: str
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -40,6 +49,34 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
             import datetime
             user_obj.created_at = datetime.datetime.now()
             
+    return token_data
+
+
+# ==========================================
+# 🌟 2️⃣ NEW: Google Sign-In Route Handler
+# ==========================================
+@router.post("/google", response_model=TokenResponse)
+async def google_login(data: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Google Client ID Token parsing and user session registration trigger.
+    """
+    service = AuthService(db)
+    token_data = await service.google_login(data.token)
+    
+    # Ensure user object inside token data has proper fallbacks
+    user_obj = token_data.get("user") if isinstance(token_data, dict) else getattr(token_data, "user", None)
+    if user_obj:
+        if isinstance(user_obj, dict):
+            if "is_active" not in user_obj:
+                user_obj["is_active"] = True
+            if "preferences" not in user_obj:
+                user_obj["preferences"] = {}
+        else:
+            if not getattr(user_obj, 'is_active', None):
+                user_obj.is_active = True
+            if getattr(user_obj, 'preferences', None) is None:
+                user_obj.preferences = {}
+                
     return token_data
 
 

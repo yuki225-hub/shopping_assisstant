@@ -1,0 +1,16 @@
+# Local secret settings variable storage file blockers:
+.env
+backend/.env
+frontend/.env
+
+# Local target test run metrics database engines:
+backend/shopping.db
+*.db
+
+# Analytics monitoring runtime engine data:
+backend/logs/
+*.log
+
+.venv/
+__pycache__/
+*.pyc

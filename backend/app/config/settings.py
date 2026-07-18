@@ -44,9 +44,11 @@ class Settings(BaseSettings):
     # RapidAPI (real product data)
     RAPIDAPI_KEY: str = ""
 
+    # Google OAuth Keys for Sign-In 🌟
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+
     # Google Custom Search API (product images + exact product URLs)
-    # Free: 100 queries/day
-    # Setup: https://developers.google.com/custom-search/v1/overview
     GOOGLE_API_KEY: str = ""
     GOOGLE_CSE_ID: str = ""
 
@@ -64,6 +66,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # 🟢 Extra key constraints errors crash bypass settings!
 
 
 settings = Settings()
